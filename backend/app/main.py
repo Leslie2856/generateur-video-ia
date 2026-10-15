@@ -10,9 +10,8 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from starlette.background import BackgroundTask
 
-from .video_provider import VideoProvider, VideoProviderError
+from .video_provider import DEFAULT_SPACE_ID, VideoProvider, VideoProviderError
 
 app = FastAPI(title="Générateur vidéo IA API", version="0.2.0")
 app.add_middleware(
@@ -31,7 +30,7 @@ AspectRatio = Literal["9:16", "16:9", "1:1"]
 MAX_PROMPT_LENGTH = 4000
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 # The selected public LTX-2 Space currently accepts at most 10 seconds per request.
-MAX_PROVIDER_DURATION_SECONDS = 10
+MAX_PROVIDER_DURATION_SECONDS = 5
 
 
 class GenerationRequest(BaseModel):
@@ -42,15 +41,9 @@ class GenerationRequest(BaseModel):
 
 def get_provider() -> VideoProvider:
     # Deliberately no token support: this integration must not consume paid credits.
-    space_id = os.getenv("HF_VIDEO_SPACE_ID", "").strip()
-    if not space_id:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Moteur vidéo non configuré. Définissez HF_VIDEO_SPACE_ID avec un "
-                "Space Hugging Face public et gratuit. Aucun fournisseur payant ne sera utilisé."
-            ),
-        )
+    # A public ZeroGPU Space is the default. Overrides must also be public/free.
+    # No token is accepted, preventing use of paid/prepaid inference credits.
+    space_id = os.getenv("HF_VIDEO_SPACE_ID", DEFAULT_SPACE_ID).strip() or DEFAULT_SPACE_ID
     return VideoProvider(space_id=space_id)
 
 
@@ -63,7 +56,7 @@ def validate_provider_duration(duration_seconds: int) -> None:
         raise HTTPException(
             status_code=422,
             detail=(
-                "Le moteur configuré accepte au maximum 10 secondes par clip. "
+                "Le moteur gratuit actuel accepte au maximum 5 secondes par clip. "
                 "Les vidéos de 1 à 3 minutes nécessitent un pipeline multi-scènes "
                 "et un quota gratuit suffisant ; aucun clip fictif ne sera créé."
             ),
@@ -75,7 +68,9 @@ def health():
     return {
         "status": "ok",
         "app": "generateur-video-ia",
-        "video_provider_configured": bool(os.getenv("HF_VIDEO_SPACE_ID", "").strip()),
+        "video_provider_configured": True,
+        "provider_space_id": os.getenv("HF_VIDEO_SPACE_ID", DEFAULT_SPACE_ID).strip() or DEFAULT_SPACE_ID,
+        "max_clip_seconds": MAX_PROVIDER_DURATION_SECONDS,
         "paid_fallback": False,
     }
 
@@ -87,7 +82,7 @@ async def provider_health():
         available = await run_in_threadpool(provider.check_available)
     except VideoProviderError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return {"configured": True, "available": available, "space_id": provider.space_id, "paid_fallback": False}
+    return {"configured": True, "available": available, "space_id": provider.space_id, "max_clip_seconds": MAX_PROVIDER_DURATION_SECONDS, "paid_fallback": False}
 
 
 async def save_generated_video(provider: VideoProvider, prompt: str, duration: int, ratio: AspectRatio, image_path: str | None = None):
