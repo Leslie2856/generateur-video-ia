@@ -15,7 +15,7 @@ class FakeProvider:
     def generate(self, *, prompt, duration_seconds, width, height, image_path=None):
         output = Path(main.OUTPUT_DIR) / "provider-test.mp4"
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_bytes(b"not-a-real-video-test-fixture")
+        output.write_bytes(b"\x00\x00\x00\x18ftypisom\x00\x00\x02\x00")
         return str(output)
 
 
@@ -41,7 +41,7 @@ def test_provider_health_uses_provider_adapter(client):
     assert response.json()["paid_fallback"] is False
 
 
-def test_text_generation_returns_real_file_url_from_provider(client):
+def test_text_generation_returns_file_url_from_mock_provider(client):
     response = client.post(
         "/api/jobs",
         json={"prompt": "Un coucher de soleil sur le Sahel", "duration_seconds": 5, "aspect_ratio": "16:9"},
