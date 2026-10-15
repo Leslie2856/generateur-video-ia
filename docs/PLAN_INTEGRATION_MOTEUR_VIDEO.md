@@ -53,13 +53,13 @@ La documentation officielle indique actuellement seulement 0,10 USD de crédits 
 
 - [x] Inspecter les fichiers existants avant modification.
 - [x] Créer la branche isolée `feature/video-engine-integration` depuis `main`.
-- [ ] Choisir et vérifier un Space/modèle gratuit précis, son API, sa licence, sa politique d'usage et ses limites.
-- [ ] Implémenter un adaptateur backend désactivé par défaut.
-- [ ] Ajouter une gestion de tâches et de quotas sans facturation.
-- [ ] Connecter le frontend à l'état réel des tâches et aux résultats.
-- [ ] Ajouter des tests avec fournisseur simulé pour les statuts et erreurs, sans présenter ces tests comme une génération réelle.
-- [ ] Tester avec le fournisseur gratuit réel si le quota le permet.
-- [ ] Mettre à jour le README et documenter explicitement les limites du gratuit.
+- [x] Choisir un Space public ZeroGPU candidat et vérifier sa signature API ; sa disponibilité réelle doit encore être testée.
+- [x] Implémenter un adaptateur backend pour Wan 2.2 ZeroGPU, sans jeton ni fournisseur payant.
+- [x] Arrêter proprement sur erreur/quota et ne jamais basculer vers un fournisseur payant. La file de tâches persistante reste à développer.
+- [x] Connecter le frontend aux endpoints et au fichier vidéo réel renvoyé par le fournisseur.
+- [x] Ajouter des tests backend avec fournisseur simulé et une CI pour tests/build ; ces tests ne valident pas le service distant.
+- [ ] Tester avec le fournisseur gratuit réel si le quota le permet (à lancer depuis l'environnement utilisateur, quota très limité).
+- [x] Mettre à jour le README et documenter explicitement les limites du gratuit.
 
 ## Garde-fous non négociables
 
@@ -69,3 +69,12 @@ La documentation officielle indique actuellement seulement 0,10 USD de crédits 
 - Aucun changement de `main`.
 - Aucune fusion de branche ou création de pull request de fusion sans accord explicite.
 - Ne pas annoncer la génération réelle tant qu'un test avec un moteur réel n'a pas réussi.
+
+
+## État après l'intégration initiale
+
+- Space candidat fixé : `Wan-AI/Wan-2.2-5B`, sans jeton d'authentification.
+- Durée actuellement autorisée : 5 secondes maximum par requête.
+- La limite de 1 à 3 minutes n'est pas encore implémentée : l'assemblage de scènes est un chantier séparé et ne peut pas être promis sous le quota gratuit actuel.
+- Les tests automatisés et le build doivent être exécutés par GitHub Actions ; aucun résultat de CI n'est revendiqué tant qu'il n'a pas été observé.
+- Le test réel doit être lancé manuellement et consommera le quota ZeroGPU anonyme. Si le Space ou le quota refuse la demande, l'application doit l'indiquer et s'arrêter.
