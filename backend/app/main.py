@@ -29,7 +29,7 @@ app.mount("/generated", StaticFiles(directory=str(OUTPUT_DIR)), name="generated"
 AspectRatio = Literal["9:16", "16:9", "1:1"]
 MAX_PROMPT_LENGTH = 4000
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
-# The selected public LTX-2 Space currently accepts at most 10 seconds per request.
+# The selected public Wan 2.2 Space supports short clips only.
 MAX_PROVIDER_DURATION_SECONDS = 5
 
 
@@ -99,8 +99,12 @@ async def save_generated_video(provider: VideoProvider, prompt: str, duration: i
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     source = Path(result_path)
-    if not source.is_file() or source.stat().st_size == 0:
+    if not source.is_file() or source.stat().st_size < 12:
         raise HTTPException(status_code=502, detail="Le moteur n'a pas renvoyé de fichier vidéo valide.")
+    with source.open("rb") as video_file:
+        header = video_file.read(12)
+    if b"ftyp" not in header:
+        raise HTTPException(status_code=502, detail="Le résultat reçu n'est pas un MP4 valide. Aucun fichier n'a été présenté comme vidéo.")
     output_name = f"{uuid.uuid4().hex}.mp4"
     destination = OUTPUT_DIR / output_name
     shutil.copyfile(source, destination)
