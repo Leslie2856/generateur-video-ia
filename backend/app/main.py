@@ -41,10 +41,8 @@ class GenerationRequest(BaseModel):
 
 def get_provider() -> VideoProvider:
     # Deliberately no token support: this integration must not consume paid credits.
-    # A public ZeroGPU Space is the default. Overrides must also be public/free.
-    # No token is accepted, preventing use of paid/prepaid inference credits.
-    space_id = os.getenv("HF_VIDEO_SPACE_ID", DEFAULT_SPACE_ID).strip() or DEFAULT_SPACE_ID
-    return VideoProvider(space_id=space_id)
+    # Fixed to the public ZeroGPU Space. No token or configurable paid provider is supported.
+    return VideoProvider(space_id=DEFAULT_SPACE_ID)
 
 
 def dimensions_for_ratio(ratio: AspectRatio) -> tuple[int, int]:
@@ -69,7 +67,7 @@ def health():
         "status": "ok",
         "app": "generateur-video-ia",
         "video_provider_configured": True,
-        "provider_space_id": os.getenv("HF_VIDEO_SPACE_ID", DEFAULT_SPACE_ID).strip() or DEFAULT_SPACE_ID,
+        "provider_space_id": DEFAULT_SPACE_ID,
         "max_clip_seconds": MAX_PROVIDER_DURATION_SECONDS,
         "paid_fallback": False,
     }
