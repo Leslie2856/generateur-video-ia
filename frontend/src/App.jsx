@@ -7,7 +7,6 @@ export default function App() {
   const [mode, setMode] = useState('image')
   const [prompt, setPrompt] = useState('')
   const [duration, setDuration] = useState(3)
-  const [ratio, setRatio] = useState('16:9')
   const [file, setFile] = useState(null)
   const [motionVideo, setMotionVideo] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -77,7 +76,7 @@ export default function App() {
       let endpoint = '/api/jobs/image-to-video'
       if (mode === 'image') {
         data.append('duration_seconds', String(duration))
-        data.append('aspect_ratio', ratio)
+        data.append('aspect_ratio', '16:9')
       } else {
         endpoint = '/api/jobs/animate'
         data.append('motion_video', motionVideo)
@@ -98,7 +97,7 @@ export default function App() {
   return <div className="app-shell">
     <header className="topbar"><a className="brand" href="#top"><span className="brand-icon"><Clapperboard size={21} /></span><span>motion<span className="brand-accent">lab</span><small>STUDIO IA</small></span></a><div className="top-actions"><span className="status-dot" /><span className="beta">BÊTA</span><a className="github-link" href="https://github.com/Leslie2856/generateur-video-ia/tree/feature/video-engine-integration" target="_blank" rel="noreferrer">GitHub ↗</a></div></header>
     <main id="top" className="main-grid">
-      <section className="intro"><div className="eyebrow"><Sparkles size={14} /> TON IMAGINATION, EN MOUVEMENT</div><h1>Transforme tes idées<br />en <span>vidéos.</span></h1><p className="intro-copy">Teste deux moteurs Wan 2.2 gratuits : animation d’une image ou transfert de mouvement à un personnage.</p><div className="feature-row"><div><ImagePlus size={17}/><span>Image en vidéo</span></div><div><Film size={17}/><span>Animation guidée</span></div><div><Clock3 size={17}/><span>Clips courts</span></div></div><div className="preview-card"><div className="preview-orbit orbit-one"/><div className="preview-orbit orbit-two"/><div className="preview-center"><Clapperboard size={38}/><span>TON PROCHAIN FILM</span><small>COMMENCE ICI</small></div><div className="preview-chip chip-top">✦ Wan 2.2 · ZeroGPU</div><div className="preview-chip chip-bottom">FORMAT · {ratio}</div></div></section>
+      <section className="intro"><div className="eyebrow"><Sparkles size={14} /> TON IMAGINATION, EN MOUVEMENT</div><h1>Transforme tes idées<br />en <span>vidéos.</span></h1><p className="intro-copy">Teste deux moteurs Wan 2.2 gratuits : animation d’une image ou transfert de mouvement à un personnage.</p><div className="feature-row"><div><ImagePlus size={17}/><span>Image en vidéo</span></div><div><Film size={17}/><span>Animation guidée</span></div><div><Clock3 size={17}/><span>Clips courts</span></div></div><div className="preview-card"><div className="preview-orbit orbit-one"/><div className="preview-orbit orbit-two"/><div className="preview-center"><Clapperboard size={38}/><span>TON PROCHAIN FILM</span><small>COMMENCE ICI</small></div><div className="preview-chip chip-top">✦ Wan 2.2 · ZeroGPU</div><div className="preview-chip chip-bottom">FORMAT · IMAGE SOURCE</div></div></section>
       <section className="studio-card"><div className="studio-heading"><div><div className="section-kicker">ESPACE DE CRÉATION</div><h2>Nouvelle vidéo</h2></div><span className="step-tag">01 <span>/ 02</span></span></div>
         <div className="mode-tabs"><button className={mode === 'image' ? 'mode-tab active' : 'mode-tab'} onClick={() => { setMode('image'); setNotice(''); setProviderStatus(''); setVideoUrl('') }} type="button"><WandSparkles size={17}/> Image vers vidéo</button><button className={mode === 'animate' ? 'mode-tab active' : 'mode-tab'} onClick={() => { setMode('animate'); setNotice(''); setProviderStatus(''); setVideoUrl('') }} type="button"><Film size={17}/> Animer un personnage</button></div>
         <form onSubmit={generate}><label className="field-label" htmlFor="prompt">{mode === 'image' ? 'DÉCRIS LE MOUVEMENT À GÉNÉRER' : 'DÉCRIS LE RÉSULTAT SOUHAITÉ'} <span>REQUIS</span></label><textarea id="prompt" value={prompt} onChange={e => setPrompt(e.target.value)} maxLength={4000} placeholder={mode === 'image' ? 'Ex. : Anime doucement cette image, vent dans les vêtements, caméra qui avance, lumière cinématographique…' : 'Ex. : Reproduis le mouvement de la vidéo de référence, en conservant l’apparence du personnage et le décor…'} rows={4}/><div className="field-footer"><span>Une consigne précise aide à guider le résultat.</span><span>{prompt.length}/4000</span></div>
