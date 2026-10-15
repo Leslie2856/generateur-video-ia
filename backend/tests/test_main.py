@@ -59,18 +59,14 @@ def test_duration_over_provider_limit_is_rejected_without_generation(client):
         json={"prompt": "Une scène au Sahel", "duration_seconds": 30, "aspect_ratio": "16:9"},
     )
     assert response.status_code == 422
-    assert "10 secondes" in response.json()["detail"]
+    assert "5 secondes" in response.json()["detail"]
 
 
-def test_missing_provider_is_reported_without_paid_fallback(monkeypatch):
+def test_default_provider_is_free_and_has_no_paid_fallback(monkeypatch):
     monkeypatch.delenv("HF_VIDEO_SPACE_ID", raising=False)
-    client = TestClient(main.app)
-    response = client.post(
-        "/api/jobs",
-        json={"prompt": "Un coucher de soleil", "duration_seconds": 5, "aspect_ratio": "16:9"},
-    )
-    assert response.status_code == 503
-    assert "aucun fournisseur payant" in response.json()["detail"]
+    provider = main.get_provider()
+    assert provider.space_id == "Wan-AI/Wan-2.2-5B"
+    assert main.health()["paid_fallback"] is False
 
 
 def test_rejects_invalid_image_mime_type(client):
