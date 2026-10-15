@@ -8,3 +8,6 @@ dist/
 .env.*
 !.env.example
 .DS_Store
+
+# Generated video files are local artifacts, not source code
+backend/generated/
