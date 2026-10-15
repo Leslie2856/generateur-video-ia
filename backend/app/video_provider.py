@@ -1,82 +1,122 @@
-"""Free-only adapter for the public Wan 2.2 ZeroGPU Space.
+"""Free-only adapters for public Hugging Face ZeroGPU Spaces.
 
-Intentionally does not accept or send authentication tokens, so this application cannot
-spend a user's prepaid credits or silently fall back to a paid inference API.
+No Hugging Face token is accepted or sent. Public Space quotas and availability
+remain controlled by Hugging Face; this module never falls back to a paid API.
 """
 from pathlib import Path
-from typing import Any
-
 from gradio_client import Client, handle_file
 
-DEFAULT_SPACE_ID = "Wan-AI/Wan-2.2-5B"
+DEFAULT_IMAGE_SPACE = "Saravutw/WAN2.2_I2V_LIGHTNING_4-8step_custom"
+DEFAULT_ANIMATE_SPACE = "hugging-apps/wan2-2-animate-2-14b"
+# Backwards-compatible name used by health checks and older tests.
+DEFAULT_SPACE_ID = DEFAULT_IMAGE_SPACE
 
 
 class VideoProviderError(RuntimeError):
     """A safe, user-facing provider failure."""
 
 
+def _client(space_id: str) -> Client:
+    try:
+        return Client(space_id, verbose=False)
+    except Exception as exc:
+        raise VideoProviderError(
+            f"Impossible de joindre le Space Hugging Face gratuit « {space_id} ». "
+            "Vérifiez sa disponibilité et réessayez plus tard. Aucun fournisseur payant n'a été appelé."
+        ) from exc
+
+
+def _result_video_path(result) -> str:
+    candidates = result if isinstance(result, (tuple, list)) else [result]
+    for candidate in candidates:
+        if isinstance(candidate, str) and Path(candidate).is_file():
+            return candidate
+        if isinstance(candidate, dict):
+            path = candidate.get("path")
+            if isinstance(path, str) and Path(path).is_file():
+                return path
+    raise VideoProviderError(
+        "Le Space n'a pas renvoyé de fichier vidéo accessible. "
+        "Aucune vidéo fictive n'a été créée."
+    )
+
+
 class VideoProvider:
-    def __init__(self, space_id: str = DEFAULT_SPACE_ID):
+    """Wan2.2 image-to-video provider, using a public ZeroGPU Space."""
+
+    def __init__(self, space_id: str = DEFAULT_IMAGE_SPACE):
         self.space_id = space_id
 
-    def _client(self) -> Client:
-        try:
-            return Client(self.space_id, verbose=False)
-        except Exception as exc:
-            raise VideoProviderError(
-                "Impossible de joindre le Space Hugging Face gratuit configuré. "
-                "Vérifiez sa disponibilité et réessayez plus tard. Aucun fournisseur payant n'a été appelé."
-            ) from exc
-
     def check_available(self) -> bool:
-        self._client()
+        _client(self.space_id)
         return True
 
-    def generate(
-        self,
-        *,
-        prompt: str,
-        duration_seconds: int,
-        width: int,
-        height: int,
-        image_path: str | None = None,
-    ) -> str:
-        client = self._client()
-        image_input: Any = handle_file(image_path) if image_path else None
-        if width > height:
-            size = "1280*704"
-        elif height > width:
-            size = "704*1280"
-        else:
-            size = "960*960"
-
+    def generate(self, *, prompt: str, duration_seconds: int, width: int, height: int, image_path: str | None = None) -> str:
+        if not image_path:
+            raise VideoProviderError("Le mode Wan2.2 Image vers vidéo exige une image de départ.")
+        client = _client(self.space_id)
         try:
+            # Input order matches the public Space's generate_video UI:
+            # image, optional last image, prompt, steps, negative prompt, duration,
+            # two guidance values, seed, randomize, quality, scheduler, flow shift,
+            # frame multiplier, safe mode, display result.
             result = client.predict(
-                image=image_input,
-                prompt=prompt,
-                size=size,
-                duration_seconds=float(duration_seconds),
-                sampling_steps=35,
-                guide_scale=5.0,
-                shift=5.0,
-                seed=-1,
+                handle_file(image_path),
+                None,
+                prompt,
+                4,
+                "blurry, low quality, chaotic, deformed, watermark, bad anatomy, shaky camera",
+                float(min(max(duration_seconds, 1), 5)),
+                1.0,
+                1.0,
+                42,
+                True,
+                5,
+                "UniPCMultistep",
+                3.0,
+                16,
+                False,
+                True,
                 api_name="/generate_video",
             )
         except Exception as exc:
-            message = str(exc).lower()
-            if any(term in message for term in ("quota", "exceeded", "rate limit", "too many", "gpu")):
-                raise VideoProviderError(
-                    "Le quota gratuit ou la capacité GPU est atteint. Attendez le renouvellement "
-                    "ou la fin de la file puis réessayez ; aucune bascule payante n'est prévue."
-                ) from exc
-            raise VideoProviderError(
-                "La génération a échoué ou le Space est indisponible. Vérifiez son état et réessayez plus tard. "
-                "Aucune vidéo fictive n'a été créée et aucun fournisseur payant n'a été appelé."
-            ) from exc
+            raise _provider_error(exc, self.space_id) from exc
+        return _result_video_path(result)
 
-        video_path = result[0] if isinstance(result, (tuple, list)) and result else result
-        if not isinstance(video_path, str) or not Path(video_path).is_file():
-            raise VideoProviderError(
-                "Le Space n'a pas renvoyé de fichier vidéo accessible. Vérifiez son API publique."
+
+class AnimateProvider:
+    """Wan-Animate-2 provider: reference character image + driving video + prompt."""
+
+    def __init__(self, space_id: str = DEFAULT_ANIMATE_SPACE):
+        self.space_id = space_id
+
+    def check_available(self) -> bool:
+        _client(self.space_id)
+        return True
+
+    def generate(self, *, prompt: str, image_path: str, motion_video_path: str) -> str:
+        client = _client(self.space_id)
+        try:
+            # The public Space exposes the /animate Gradio endpoint.
+            result = client.predict(
+                handle_file(image_path),
+                handle_file(motion_video_path),
+                prompt,
+                api_name="/animate",
             )
-        return video_path
+        except Exception as exc:
+            raise _provider_error(exc, self.space_id) from exc
+        return _result_video_path(result)
+
+
+def _provider_error(exc: Exception, space_id: str) -> VideoProviderError:
+    message = str(exc).lower()
+    if any(term in message for term in ("quota", "exceeded", "rate limit", "too many", "gpu", "queue full")):
+        return VideoProviderError(
+            "Le quota gratuit ou la capacité GPU est atteint. Attendez le renouvellement "
+            "ou la fin de la file puis réessayez ; aucune bascule payante n'est prévue."
+        )
+    return VideoProviderError(
+        f"La génération a échoué ou le Space gratuit « {space_id} » est indisponible. "
+        "Vérifiez son état et réessayez. Aucune vidéo fictive n'a été créée et aucun fournisseur payant n'a été appelé."
+    )
