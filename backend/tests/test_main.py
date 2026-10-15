@@ -76,3 +76,22 @@ def test_rejects_invalid_image_mime_type(client):
         files={"image": ("malware.txt", b"not an image", "text/plain")},
     )
     assert response.status_code == 415
+
+
+def test_provider_failure_returns_clear_503_without_paid_fallback(client, monkeypatch):
+    class UnavailableProvider:
+        space_id = "Wan-AI/Wan-2.2-5B"
+
+        def generate(self, **kwargs):
+            raise main.VideoProviderError(
+                "Le quota gratuit est atteint. Réessayez plus tard ; aucune bascule payante n'est prévue."
+            )
+
+    monkeypatch.setattr(main, "get_provider", lambda: UnavailableProvider())
+    response = client.post(
+        "/api/jobs",
+        json={"prompt": "Un coucher de soleil sur le Sahel", "duration_seconds": 5, "aspect_ratio": "16:9"},
+    )
+    assert response.status_code == 503
+    assert "quota gratuit" in response.json()["detail"]
+    assert "bascule payante" in response.json()["detail"]
