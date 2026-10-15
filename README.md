@@ -5,7 +5,7 @@ Application web de génération vidéo à partir d’un texte ou d’une image.
 ## Fonctionnalités de l’interface
 - Modes **Texte vers vidéo** et **Image vers vidéo**
 - Formats 9:16, 16:9 et 1:1
-- Durée configurable de 5 secondes à 3 minutes
+- Clips de 5 secondes avec le moteur gratuit actuel (assemblage 1–3 minutes à développer)
 - Interface React/Vite responsive en français
 - API Python/FastAPI avec endpoint de santé et endpoints de génération préparés
 
